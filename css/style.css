@@ -431,3 +431,22 @@ body.locked .wa-float { display: none; }
   .wa-float { width: 50px; height: 50px; bottom: calc(16px + env(safe-area-inset-bottom)); inset-inline-end: 16px; }
   .wa-float svg { width: 27px; height: 27px; }
 }
+
+/* إعلانات وسط الصفحة (من لوحة الإدارة) */
+.mid-ads { margin-top: 56px; }
+.mid-ads-grid { display: grid; gap: 16px; }
+.mid-ads-2 .mid-ads-grid { grid-template-columns: repeat(2, 1fr); }
+.mid-ad { position: relative; display: block; overflow: hidden; border-radius: 4px; min-height: 380px; background: var(--black); color: var(--white); }
+.mid-ads-2 .mid-ad { min-height: 440px; }
+.mid-ad img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
+.mid-ad:hover img { transform: scale(1.04); }
+.mid-ad::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.7) 0%, rgba(0,0,0,.15) 55%, transparent 100%); }
+.mid-ad-text { position: absolute; inset-inline: 0; bottom: 0; z-index: 1; padding: clamp(20px, 3vw, 40px); }
+.mid-ad-text h2 { font-size: clamp(28px, 3.6vw, 52px); font-weight: 900; line-height: 1.05; text-transform: uppercase; margin-bottom: 8px; }
+.mid-ad-text p { font-size: clamp(15px, 1.4vw, 18px); font-weight: 600; color: #e5e5e5; margin-bottom: 18px; max-width: 520px; }
+@media (max-width: 760px) {
+  .mid-ads { margin-top: 40px; }
+  .mid-ads-2 .mid-ads-grid { grid-template-columns: 1fr; }
+  .mid-ad, .mid-ads-2 .mid-ad { min-height: 360px; }
+}
+.mid-ads-2 .mid-ad:last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 380px; }

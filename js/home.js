@@ -12,15 +12,19 @@ const fallbackSlides = [
 /* الإعلانات من لوحة الإدارة (جدول ms_banners) وإلا الإعلانات الافتراضية */
 const banners = await bannersPromise;
 const safeLink = l => /^(shop|product|index)\.html|^https:\/\//.test(l || '') ? l : 'shop.html';
-const slides = banners && banners.length
-  ? banners.map(b => ({
-      title: escapeHtml(LANG === 'fr' && b.title_fr ? b.title_fr : b.title_ar),
-      sub: escapeHtml(LANG === 'fr' && b.sub_fr ? b.sub_fr : b.sub_ar || ''),
-      cta: escapeHtml((LANG === 'fr' ? b.cta_fr : b.cta_ar) || t('shopNow')),
-      link: escapeHtml(safeLink(b.link)), img: escapeHtml(b.image), pos: escapeHtml(b.position || '50% 50%'),
-      external: /^https:/.test(b.link || '')
-    }))
+const toSlide = b => ({
+  title: escapeHtml(LANG === 'fr' && b.title_fr ? b.title_fr : b.title_ar),
+  sub: escapeHtml(LANG === 'fr' && b.sub_fr ? b.sub_fr : b.sub_ar || ''),
+  cta: escapeHtml((LANG === 'fr' ? b.cta_fr : b.cta_ar) || t('shopNow')),
+  link: escapeHtml(safeLink(b.link)), img: escapeHtml(b.image), pos: escapeHtml(b.position || '50% 50%'),
+  external: /^https:/.test(b.link || '')
+});
+const heroBanners = (banners || []).filter(b => (b.placement || 'hero') === 'hero');
+const midAds = (banners || []).filter(b => b.placement === 'middle').map(toSlide);
+const slides = heroBanners.length
+  ? heroBanners.map(toSlide)
   : fallbackSlides;
+
 
 const seasonBg = { spring: '#e8f3e1', summer: '#fff1c9', autumn: '#f6dcc4', winter: '#dde8f3' };
 const seasonPick = { spring: 13, summer: 4, autumn: 11, winter: 25 };
@@ -56,6 +60,20 @@ document.getElementById('home').innerHTML = `
     </div>
   </section>
 
+  ${midAds.length ? `
+  <section class="mid-ads ${midAds.length > 1 ? 'mid-ads-2' : ''}">
+    <div class="container mid-ads-grid">
+      ${midAds.map(a => `
+        <a class="mid-ad" href="${a.link}" ${a.external ? 'target="_blank" rel="noopener"' : ''}>
+          <img src="${a.img}" alt="" loading="lazy" style="object-position:${a.pos}">
+          <div class="mid-ad-text">
+            <h2>${a.title}</h2>
+            ${a.sub ? `<p>${a.sub}</p>` : ''}
+            <span class="btn btn-light">${a.cta}</span>
+          </div>
+        </a>`).join('')}
+    </div>
+  </section>` : `
   <section class="banner">
     <div class="container banner-inner">
       <div class="banner-text">
@@ -66,7 +84,7 @@ document.getElementById('home').innerHTML = `
       </div>
       <div class="banner-visual">${shoeSVG(getProduct(3))}${shoeSVG(getProduct(21))}</div>
     </div>
-  </section>
+  </section>`}
 
   ${carousel(t('bannerT'), PRODUCTS.filter(p => p.style === 'streetwear'), 'shop.html?style=streetwear')}
 

@@ -87,7 +87,7 @@
       <!-- المنتجات -->
       <section id="tab-banners" hidden>
         <div class="toolbar">
-          <p class="muted grow">الإعلانات المفعّلة تظهر في أعلى الصفحة الرئيسية وتتبدل كل 5 ثوانٍ، بالترتيب من الأعلى إلى الأسفل.</p>
+          <p class="muted grow">إعلانات <b>أعلى الصفحة</b> تتبدل كل 5 ثوانٍ، وإعلانات <b>وسط الصفحة</b> تظهر بعرض الصفحة (إعلانان جنباً إلى جنب). الترتيب من الأعلى إلى الأسفل.</p>
           <button class="btn btn-dark" id="banner-add">＋ إضافة إعلان</button>
         </div>
         <p class="warn" id="banners-warn" hidden>⚠️ الإعلانات غير مفعّلة بعد — شغّل الملف <code>supabase/banners.sql</code> في Supabase SQL Editor.</p>
@@ -175,6 +175,13 @@
       </div>
       <div class="dialog-body">
         <div class="form-grid">
+          <label class="span-2">مكان الإعلان *
+            <select name="placement">
+              <option value="hero">⬆️ أعلى الصفحة الرئيسية (السلايدر)</option>
+              <option value="middle">↔️ وسط الصفحة الرئيسية</option>
+            </select>
+          </label>
+
           <fieldset class="span-2">
             <legend>صورة الإعلان *</legend>
             <div class="banner-preview" id="banner-preview"><span class="muted">لم تُرفع صورة بعد</span></div>

@@ -939,9 +939,10 @@ const Banners = {
     return `🔗 ${link}`;
   },
 
-  render() {
-    const active = this.list.filter(b => b.active).length;
-    $('#banners-list').innerHTML = this.list.length ? this.list.map((b, i) => `
+  group(placement) { return this.list.filter(b => (b.placement || 'hero') === placement); },
+
+  card(b, i, arr) {
+    return `
       <article class="bcard ${b.active ? '' : 'off'}">
         <div class="bcard-img"><img src="${esc(b.image)}" alt="" style="object-position:${esc(b.position)}" loading="lazy">
           <span class="ptag ${b.active ? 'ptag-on' : ''}">${b.active ? '● ظاهر' : 'مخفي'}</span></div>
@@ -952,14 +953,26 @@ const Banners = {
         </div>
         <div class="bcard-actions">
           <button class="btn btn-ghost btn-sm" data-up="${b.id}" ${i === 0 ? 'disabled' : ''} title="تقديم">▲</button>
-          <button class="btn btn-ghost btn-sm" data-down="${b.id}" ${i === this.list.length - 1 ? 'disabled' : ''} title="تأخير">▼</button>
+          <button class="btn btn-ghost btn-sm" data-down="${b.id}" ${i === arr.length - 1 ? 'disabled' : ''} title="تأخير">▼</button>
           <button class="btn btn-ghost btn-sm" data-edit="${b.id}">✏️ تعديل</button>
           <button class="btn btn-ghost btn-sm" data-bvis="${b.id}">${b.active ? '🙈 إخفاء' : '👁️ إظهار'}</button>
           <button class="btn btn-danger btn-sm" data-del="${b.id}">🗑️</button>
         </div>
-      </article>`).join('')
-      : '<p class="empty">لا توجد إعلانات. اضغط "＋ إضافة إعلان". (بدون إعلانات تظهر الصور الافتراضية)</p>';
-    if (this.list.length && !active) $('#banners-list').insertAdjacentHTML('afterbegin', '<p class="warn">كل الإعلانات مخفية، لذلك تظهر الصور الافتراضية في الموقع.</p>');
+      </article>`;
+  },
+
+  render() {
+    const section = (placement, title, emptyText) => {
+      const arr = this.group(placement);
+      const allHidden = arr.length && !arr.some(b => b.active);
+      return `
+        <h3 class="bgroup-title">${title} <span class="muted small">(${arr.filter(b => b.active).length} ظاهر من ${arr.length})</span></h3>
+        ${allHidden ? '<p class="warn">كل إعلانات هذا المكان مخفية، لذلك يظهر المحتوى الافتراضي في الموقع.</p>' : ''}
+        ${arr.length ? arr.map((b, i) => this.card(b, i, arr)).join('') : `<p class="empty small-empty">${emptyText}</p>`}`;
+    };
+    $('#banners-list').innerHTML =
+      section('hero', '⬆️ أعلى الصفحة الرئيسية (السلايدر)', 'لا توجد إعلانات هنا — تظهر الصور الافتراضية.') +
+      section('middle', '↔️ وسط الصفحة الرئيسية', 'لا توجد إعلانات هنا — يظهر بانر "ستريت وير" الافتراضي. اضغط "＋ إضافة إعلان" واختر "وسط الصفحة".');
   },
 
   onClick(e) {
@@ -975,14 +988,17 @@ const Banners = {
   },
 
   async move(id, dir) {
-    const i = this.list.findIndex(x => x.id === id), j = i + dir;
-    if (j < 0 || j >= this.list.length) return;
-    [this.list[i], this.list[j]] = [this.list[j], this.list[i]];
-    // إعادة ترقيم الكل حتى يكون الترتيب ثابتاً
-    const results = await Promise.all(this.list.map((x, k) => x.sort_order === k + 1 ? null
+    const item = this.list.find(x => x.id === id);
+    const arr = this.group(item.placement || 'hero');
+    const i = arr.indexOf(item), j = i + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    // إعادة ترقيم إعلانات هذا المكان حتى يكون الترتيب ثابتاً
+    const results = await Promise.all(arr.map((x, k) => x.sort_order === k + 1 ? null
       : this.sb.from('ms_banners').update({ sort_order: k + 1 }).eq('id', x.id).then(r => { if (!r.error) x.sort_order = k + 1; return r; })));
     const err = results.find(r => r && r.error);
     if (err) toast('تعذر تغيير الترتيب: ' + err.error.message, true);
+    this.list.sort((a, c) => a.sort_order - c.sort_order || a.id - c.id);
     this.render();
   },
 
@@ -1011,6 +1027,7 @@ const Banners = {
     ['title_ar', 'title_fr', 'sub_ar', 'sub_fr', 'cta_ar', 'cta_fr'].forEach(k => f[k].value = b?.[k] || '');
     f.position.value = [...f.position.options].some(o => o.value === b?.position) ? b.position : '50% 50%';
     f.active.checked = b ? b.active : true;
+    f.placement.value = b?.placement || 'hero';
     const link = b?.link || 'shop.html';
     const known = LINK_TYPES().some(g => g.items.some(([v]) => v === link));
     const prod = /^product\.html\?id=(\d+)/.exec(link);
@@ -1065,9 +1082,10 @@ const Banners = {
     const row = {
       image: this.image, title_ar: f.title_ar.value.trim(), title_fr: clean('title_fr'),
       sub_ar: clean('sub_ar'), sub_fr: clean('sub_fr'), cta_ar: clean('cta_ar'), cta_fr: clean('cta_fr'),
-      link, position: f.position.value, active: f.active.checked
+      link, position: f.position.value, active: f.active.checked, placement: f.placement.value
     };
-    if (!this.editing) row.sort_order = Math.max(0, ...this.list.map(b => b.sort_order)) + 1;
+    if (!this.editing || this.editing.placement !== row.placement)
+      row.sort_order = Math.max(0, ...this.group(row.placement).map(b => b.sort_order)) + 1;
     const btn = $('#banner-save');
     btn.disabled = true;
     const { error } = this.editing

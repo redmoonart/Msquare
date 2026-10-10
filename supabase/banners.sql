@@ -1,5 +1,5 @@
 -- ============================================================
--- M SQUARE — الإعلانات (السلايدر في أعلى الصفحة الرئيسية)
+-- M SQUARE — الإعلانات (أعلى الصفحة الرئيسية + وسطها)
 -- شغّل هذا الملف مرة واحدة في Supabase SQL Editor بعد setup.sql.
 -- آمن لإعادة التشغيل، ولا يحذف أي بيانات.
 -- ============================================================
@@ -20,6 +20,11 @@ create table if not exists public.ms_banners (
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- مكان الإعلان: hero = السلايدر في أعلى الصفحة، middle = وسط الصفحة الرئيسية
+alter table public.ms_banners add column if not exists placement text not null default 'hero';
+alter table public.ms_banners drop constraint if exists ms_banners_placement_check;
+alter table public.ms_banners add constraint ms_banners_placement_check check (placement in ('hero','middle'));
 
 alter table public.ms_banners enable row level security;
 
