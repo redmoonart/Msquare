@@ -60,10 +60,15 @@ async function init(sb) {
     const btn = e.target.querySelector('button');
     btn.disabled = true;
     $('#login-error').hidden = true;
-    const { data, error } = await sb.auth.signInWithPassword({ email: f.get('email').trim(), password: f.get('password') });
+    const { data, error } = await sb.auth.signInWithPassword({ email: f.get('email').trim().toLowerCase(), password: f.get('password') });
     btn.disabled = false;
     if (error) {
-      $('#login-error').textContent = 'البريد أو كلمة المرور غير صحيحة';
+      const code = error.code || '';
+      $('#login-error').textContent =
+        code === 'invalid_credentials' ? 'البريد أو كلمة المرور غير صحيحة' :
+        code === 'email_not_confirmed' ? 'الحساب غير مؤكد: أكّده من Supabase (Authentication ← Users)' :
+        /fetch|network/i.test(error.message) ? 'تعذر الاتصال بـ Supabase، تحقق من الإنترنت' :
+        `خطأ: ${error.message}`;
       $('#login-error').hidden = false;
       return;
     }
