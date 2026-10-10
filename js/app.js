@@ -123,9 +123,10 @@ function renderHeader() {
           <label>${t('wilaya')}<select required name="wilaya">${WILAYAS.map((w, i) => `<option value="${i + 1}">${String(i + 1).padStart(2, '0')} - ${w}</option>`).join('')}</select></label>
           <label>${t('address')}<input required name="address"></label>
           <div class="checkout-total"><span>${t('subtotal')}</span><strong id="checkout-total"></strong></div>
+          <p class="order-error" id="order-error" hidden>${t('orderError')}</p>
           <button class="btn btn-dark btn-block" type="submit">${t('confirmOrder')}</button>
         </form>
-        <p class="order-done" id="order-done" hidden>${t('orderDone')}</p>
+        <div class="order-done" id="order-done" hidden><p>${t('orderDone')}</p><p class="muted">${t('orderNo')}: <strong id="order-id" dir="ltr"></strong></p></div>
       </div>
     </div>
 
@@ -354,14 +355,53 @@ function bindGlobal() {
     else if (el.matches('.m-toggle')) el.parentElement.classList.toggle('open');
   });
 
-  document.getElementById('checkout-form').onsubmit = e => {
+  document.getElementById('checkout-form').onsubmit = async e => {
     e.preventDefault();
-    const order = { ...Object.fromEntries(new FormData(e.target)), items: getCart(), total: cartTotal(), date: new Date().toISOString() };
-    // لا يوجد خادم بعد: يُحفظ الطلب محلياً. اربطه لاحقاً بـ API أو Google Sheets.
-    store.set('ms_orders', [...store.get('ms_orders', []), order]);
-    setCart([]);
-    e.target.hidden = true;
-    document.getElementById('order-done').hidden = false;
+    const form = e.target;
+    const btn = form.querySelector('[type="submit"]');
+    const err = document.getElementById('order-error');
+    const data = Object.fromEntries(new FormData(form));
+    const items = getCart().filter(l => getProduct(l.id)).map(l => {
+      const p = getProduct(l.id);
+      return { id: p.id, name: p.name, brand: catLabel('brand', p.brand), size: l.size, qty: l.qty, price: p.price, lineTotal: p.price * l.qty };
+    });
+    if (!items.length) return;
+    const order = {
+      id: 'MS-' + Date.now().toString(36).toUpperCase(),
+      name: data.name, phone: data.phone, address: data.address,
+      wilaya: `${String(data.wilaya).padStart(2, '0')} - ${WILAYAS[data.wilaya - 1]}`,
+      items, total: cartTotal(), lang: LANG, date: new Date().toISOString()
+    };
+
+    btn.disabled = true;
+    btn.textContent = t('sending');
+    err.hidden = true;
+    try {
+      if (ORDER_ENDPOINT) {
+        // text/plain = طلب بسيط بدون preflight، وهو ما يقبله Google Apps Script
+        const res = await fetch(ORDER_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(order)
+        });
+        const out = await res.json();
+        if (!out.ok) throw new Error(out.error || 'order_failed');
+      } else {
+        console.warn('ORDER_ENDPOINT فارغ في js/config.js — حُفظ الطلب محلياً فقط');
+      }
+      store.set('ms_orders', [...store.get('ms_orders', []), order]);
+      setCart([]);
+      form.reset();
+      form.hidden = true;
+      document.getElementById('order-id').textContent = order.id;
+      document.getElementById('order-done').hidden = false;
+    } catch (ex) {
+      console.error(ex);
+      err.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = t('confirmOrder');
+    }
   };
 
   document.getElementById('newsletter-form').onsubmit = e => {
