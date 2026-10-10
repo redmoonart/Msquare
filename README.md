@@ -35,3 +35,6 @@ python3 -m http.server 8000
 ```
 
 
+## استقبال الطلبات في Google Sheets
+كل طلب يُضاف كسطر في جدول Google Sheets عبر Google Apps Script.
+خطوات الإعداد في [`google-apps-script/README.md`](google-apps-script/README.md)، ثم ضع الرابط في `js/config.js`.
