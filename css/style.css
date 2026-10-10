@@ -156,21 +156,24 @@ ul { list-style: none; }
 .toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
 
 /* ---------- الهيرو ---------- */
-.hero { position: relative; height: min(78vh, 640px); min-height: 440px; overflow: hidden; }
-.slide { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .7s, visibility .7s; }
+.hero { position: relative; height: min(78vh, 640px); min-height: 460px; overflow: hidden; background: var(--black); }
+.slide { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(340px, 38%) 1fr; opacity: 0; visibility: hidden; transition: opacity .7s, visibility .7s; }
 .slide.active { opacity: 1; visibility: visible; }
-.slide-inner { height: 100%; display: grid; grid-template-columns: 1fr 1.2fr; align-items: center; gap: 32px; }
-.slide-text h1 { font-size: clamp(36px, 6vw, 84px); line-height: 1.05; font-weight: 900; text-transform: uppercase; margin-bottom: 14px; }
-.slide-text p { font-size: clamp(16px, 1.6vw, 20px); font-weight: 600; margin-bottom: 28px; max-width: 460px; }
-.slide-dark { color: var(--white); }
-.slide-visual { transform: rotate(-8deg); }
-.slide.active .slide-visual { animation: float 6s ease-in-out infinite; }
-@keyframes float { 0%, 100% { transform: rotate(-8deg) translateY(0); } 50% { transform: rotate(-6deg) translateY(-14px); } }
-.slide-visual .shoe-svg { width: 100%; max-height: 460px; filter: drop-shadow(0 30px 30px rgba(0,0,0,.25)); }
-.hero-dots { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-.hero-dots button { width: 36px; height: 4px; background: rgba(128,128,128,.45); }
-.hero-dots button.active { background: var(--black); }
-.slide-dark ~ .hero-dots button.active { background: var(--black); }
+.slide-photo { order: 2; position: relative; overflow: hidden; }
+.slide-photo img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.06); transition: transform 6s ease-out; }
+.slide.active .slide-photo img { transform: scale(1); }
+.slide-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to left, transparent 70%, rgba(11,11,11,.55)); }
+[dir="ltr"] .slide-photo::after { background: linear-gradient(to right, transparent 70%, rgba(11,11,11,.55)); }
+.slide-text { order: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 48px clamp(24px, 4vw, 64px); color: var(--white); background: var(--black); }
+.slide-title { font-size: clamp(36px, 4.6vw, 72px); line-height: 1.05; font-weight: 900; text-transform: uppercase; margin-bottom: 14px; }
+.slide-text p { font-size: clamp(16px, 1.5vw, 20px); font-weight: 600; color: #d8d8d8; margin-bottom: 28px; max-width: 420px; }
+.slide.active .slide-text > * { animation: slideUp .7s both; }
+.slide.active .slide-text > :nth-child(2) { animation-delay: .1s; }
+.slide.active .slide-text > :nth-child(3) { animation-delay: .2s; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.hero-dots { position: absolute; bottom: 24px; inset-inline-start: clamp(24px, 4vw, 64px); display: flex; gap: 8px; z-index: 2; }
+.hero-dots button { width: 36px; height: 4px; background: rgba(255,255,255,.35); }
+.hero-dots button.active { background: var(--white); }
 
 /* ---------- الأقسام ---------- */
 .section { padding: 56px 0 8px; }
@@ -372,9 +375,13 @@ ul { list-style: none; }
   .grid { grid-template-columns: repeat(2, 1fr); gap: 20px 12px; }
   .pdp { grid-template-columns: 1fr; gap: 24px; }
   .pdp-info { position: static; }
-  .slide-inner { grid-template-columns: 1fr; align-content: center; text-align: center; gap: 8px; }
-  .slide-text p { margin-inline: auto; }
-  .slide-visual { order: -1; max-width: 420px; margin-inline: auto; width: 80%; }
+  .hero { height: min(88vh, 680px); min-height: 0; }
+  .slide { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .slide-photo { order: 1; }
+  .slide-photo::after { background: linear-gradient(to top, rgba(11,11,11,.6), transparent 40%) !important; }
+  .slide-text { order: 2; padding: 24px 20px 52px; }
+  .slide-text p { margin-bottom: 18px; }
+  .hero-dots { bottom: 18px; inset-inline-start: 20px; }
   .banner-inner { grid-template-columns: 1fr; }
   .banner-visual { height: 260px; }
 }

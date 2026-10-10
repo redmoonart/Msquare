@@ -3,9 +3,9 @@ boot(() => {
 
 const byId = ids => ids.map(getProduct);
 const slides = [
-  { title: t('heroT1'), sub: t('heroS1'), cta: t('discover'), link: 'shop.html?sale=1',            bg: 'linear-gradient(120deg,#111 0%,#2b2b2b 100%)', p: getProduct(9),  light: true },
-  { title: t('heroT2'), sub: t('heroS2'), cta: t('shopNow'),  link: 'shop.html?season=winter',     bg: 'linear-gradient(120deg,#d9e4ec 0%,#9fb7c9 100%)', p: getProduct(24) },
-  { title: t('heroT3'), sub: t('heroS3'), cta: t('shopNow'),  link: 'shop.html?style=sport',       bg: 'linear-gradient(120deg,#ffe500 0%,#ffb800 100%)', p: getProduct(10) }
+  { title: t('heroT1'), sub: t('heroS1'), cta: t('discover'), link: 'shop.html?brand=adidas', img: 'assets/hero/hero1.jpg', pos: '50% 60%' },
+  { title: t('heroT2'), sub: t('heroS2'), cta: t('shopNow'),  link: 'shop.html?brand=puma',   img: 'assets/hero/hero2.jpg', pos: '50% 55%' },
+  { title: t('heroT3'), sub: t('heroS3'), cta: t('shopNow'),  link: 'shop.html?brand=nike',   img: 'assets/hero/hero3.jpg', pos: '35% 70%' }
 ];
 
 const seasonBg = { spring: '#e8f3e1', summer: '#fff1c9', autumn: '#f6dcc4', winter: '#dde8f3' };
@@ -15,14 +15,12 @@ const stylePick = { sport: 1, casual: 20, streetwear: 17, classic: 26, outdoor: 
 document.getElementById('home').innerHTML = `
   <section class="hero">
     ${slides.map((s, i) => `
-      <div class="slide ${i === 0 ? 'active' : ''} ${s.light ? 'slide-dark' : ''}" style="background:${s.bg}">
-        <div class="container slide-inner">
-          <div class="slide-text">
-            <h1>${s.title}</h1>
-            <p>${s.sub}</p>
-            <a href="${s.link}" class="btn ${s.light ? 'btn-light' : 'btn-dark'}">${s.cta}</a>
-          </div>
-          <div class="slide-visual">${shoeSVG(s.p)}</div>
+      <div class="slide ${i === 0 ? 'active' : ''}">
+        <div class="slide-photo"><img src="${s.img}" alt="" style="object-position:${s.pos}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}></div>
+        <div class="slide-text">
+          <h${i ? 2 : 1} class="slide-title">${s.title}</h${i ? 2 : 1}>
+          <p>${s.sub}</p>
+          <a href="${s.link}" class="btn btn-light">${s.cta}</a>
         </div>
       </div>`).join('')}
     <div class="hero-dots">${slides.map((_, i) => `<button data-slide="${i}" class="${i === 0 ? 'active' : ''}" aria-label="${i + 1}"></button>`).join('')}</div>
