@@ -42,6 +42,7 @@
         <button class="tab" data-tab="stats">📊 الإحصائيات</button>
         <button class="tab active" data-tab="orders">🧾 الطلبات <span class="pill" id="new-badge" hidden></span></button>
         <button class="tab" data-tab="products">👟 المنتجات</button>
+        <button class="tab" data-tab="banners">🖼️ الإعلانات</button>
       </nav>
       <div class="topbar-end">
         <a href="index.html" target="_blank" class="btn btn-ghost btn-sm">🛍️ المتجر</a>
@@ -84,6 +85,15 @@
       </section>
 
       <!-- المنتجات -->
+      <section id="tab-banners" hidden>
+        <div class="toolbar">
+          <p class="muted grow">الإعلانات المفعّلة تظهر في أعلى الصفحة الرئيسية وتتبدل كل 5 ثوانٍ، بالترتيب من الأعلى إلى الأسفل.</p>
+          <button class="btn btn-dark" id="banner-add">＋ إضافة إعلان</button>
+        </div>
+        <p class="warn" id="banners-warn" hidden>⚠️ الإعلانات غير مفعّلة بعد — شغّل الملف <code>supabase/banners.sql</code> في Supabase SQL Editor.</p>
+        <div class="banner-list" id="banners-list"></div>
+      </section>
+
       <section id="tab-products" hidden>
         <div class="toolbar">
           <input type="search" id="product-search" placeholder="🔎 بحث عن منتج...">
@@ -152,6 +162,64 @@
         <p class="error" id="product-error" hidden></p>
         <button type="button" class="btn btn-ghost" data-close-dialog>إلغاء</button>
         <button type="submit" class="btn btn-dark" id="product-save">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- نموذج الإعلان -->
+  <dialog class="dialog" id="banner-dialog">
+    <form id="banner-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="banner-form-title">إضافة إعلان</h2>
+        <button type="button" class="icon-btn" data-close-dialog>✕</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-grid">
+          <fieldset class="span-2">
+            <legend>صورة الإعلان *</legend>
+            <div class="banner-preview" id="banner-preview"><span class="muted">لم تُرفع صورة بعد</span></div>
+            <label class="upload">
+              <input type="file" id="banner-image-input" accept="image/*" hidden>
+              <span>📷 رفع صورة</span>
+            </label>
+            <p class="hint">الأفضل صورة مربعة أو عمودية بعرض 1200 بكسل على الأقل، والحذاء في وسطها.</p>
+            <label class="inline-label">موضع الحذاء في الصورة (حتى لا يُقص على الهاتف)
+              <select name="position">
+                <option value="50% 50%">في الوسط</option>
+                <option value="50% 20%">في الأعلى</option>
+                <option value="50% 80%">في الأسفل</option>
+                <option value="20% 50%">على اليسار</option>
+                <option value="80% 50%">على اليمين</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <label>العنوان بالعربية *<input name="title_ar" required maxlength="80" placeholder="مثال: تخفيضات الشتاء"></label>
+          <label>العنوان بالفرنسية<input name="title_fr" maxlength="80" dir="ltr" placeholder="Soldes d'hiver"></label>
+          <label>النص بالعربية<input name="sub_ar" maxlength="160" placeholder="مثال: حتى 30% على الأحذية الشتوية"></label>
+          <label>النص بالفرنسية<input name="sub_fr" maxlength="160" dir="ltr"></label>
+          <label>نص الزر بالعربية<input name="cta_ar" maxlength="30" placeholder="تسوق الآن"></label>
+          <label>نص الزر بالفرنسية<input name="cta_fr" maxlength="30" dir="ltr" placeholder="Achetez maintenant"></label>
+
+          <label class="span-2">عند الضغط على الإعلان يفتح *
+            <select name="link_type" id="banner-link-type"></select>
+          </label>
+          <label class="span-2" id="banner-product-wrap" hidden>المنتج
+            <select name="link_product" id="banner-link-product"></select>
+          </label>
+          <label class="span-2" id="banner-url-wrap" hidden>الرابط (يبدأ بـ https://)
+            <input name="link_url" type="url" dir="ltr" placeholder="https://...">
+          </label>
+
+          <div class="toggles span-2">
+            <label class="toggle"><input type="checkbox" name="active"><span></span>مفعّل (يظهر في الموقع)</label>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <p class="error" id="banner-error" hidden></p>
+        <button type="button" class="btn btn-ghost" data-close-dialog>إلغاء</button>
+        <button type="submit" class="btn btn-dark" id="banner-save">حفظ</button>
       </div>
     </form>
   </dialog>

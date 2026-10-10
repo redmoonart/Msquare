@@ -47,9 +47,12 @@ python3 -m http.server 8000
 السلات المتروكة، كلمات البحث والفلاتر، مصادر الزيارات، الأجهزة، ساعات الذروة، الولايات، ونصائح تلقائية.
 تتطلب تشغيل `supabase/analytics.sql` مرة واحدة.
 
+**الإعلانات:** إضافة / تعديل / حذف / ترتيب / إخفاء إعلانات السلايدر في أعلى الصفحة الرئيسية، مع رفع الصورة واختيار ما يفتحه الإعلان.
+تتطلب تشغيل `supabase/banners.sql` مرة واحدة (بدونها تظهر الصور الافتراضية).
+
 ### الإعداد (مرة واحدة)
 1. في https://supabase.com افتح مشروعاً (يمكن استعمال نفس مشروع Kids of the Future — الجداول هنا تبدأ بـ `ms_` فلا يوجد تعارض).
-2. **SQL Editor ← New query**: الصق محتوى `supabase/setup.sql` واضغط **Run**، ثم نفس الشيء مع `supabase/analytics.sql`.
+2. **SQL Editor ← New query**: الصق محتوى `supabase/setup.sql` واضغط **Run**، ثم نفس الشيء مع `supabase/analytics.sql` و `supabase/banners.sql`.
 3. **Authentication ← Users ← Add user**: أنشئ حساب المدير بالبريد المكتوب في `ADMIN_EMAIL` (إذا لم يكن موجوداً).
 4. **Project Settings ← API**: انسخ `Project URL` و `anon public key` وضعهما في `js/config.js`.
 5. انشر الموقع، ثم افتح `/admin` وسجّل الدخول.

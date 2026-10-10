@@ -1,12 +1,26 @@
 /* الصفحة الرئيسية */
-boot(() => {
+const bannersPromise = fetchBanners();   // يبدأ التحميل مع المنتجات
 
-const byId = ids => ids.map(getProduct);
-const slides = [
+boot(async () => {
+
+const fallbackSlides = [
   { title: t('heroT1'), sub: t('heroS1'), cta: t('discover'), link: 'shop.html?brand=adidas', img: 'assets/hero/hero1.jpg', pos: '50% 60%' },
   { title: t('heroT2'), sub: t('heroS2'), cta: t('shopNow'),  link: 'shop.html?brand=puma',   img: 'assets/hero/hero2.jpg', pos: '50% 55%' },
   { title: t('heroT3'), sub: t('heroS3'), cta: t('shopNow'),  link: 'shop.html?brand=nike',   img: 'assets/hero/hero3.jpg', pos: '35% 70%' }
 ];
+
+/* الإعلانات من لوحة الإدارة (جدول ms_banners) وإلا الإعلانات الافتراضية */
+const banners = await bannersPromise;
+const safeLink = l => /^(shop|product|index)\.html|^https:\/\//.test(l || '') ? l : 'shop.html';
+const slides = banners && banners.length
+  ? banners.map(b => ({
+      title: escapeHtml(LANG === 'fr' && b.title_fr ? b.title_fr : b.title_ar),
+      sub: escapeHtml(LANG === 'fr' && b.sub_fr ? b.sub_fr : b.sub_ar || ''),
+      cta: escapeHtml((LANG === 'fr' ? b.cta_fr : b.cta_ar) || t('shopNow')),
+      link: escapeHtml(safeLink(b.link)), img: escapeHtml(b.image), pos: escapeHtml(b.position || '50% 50%'),
+      external: /^https:/.test(b.link || '')
+    }))
+  : fallbackSlides;
 
 const seasonBg = { spring: '#e8f3e1', summer: '#fff1c9', autumn: '#f6dcc4', winter: '#dde8f3' };
 const seasonPick = { spring: 13, summer: 4, autumn: 11, winter: 25 };
@@ -19,11 +33,11 @@ document.getElementById('home').innerHTML = `
         <div class="slide-photo"><img src="${s.img}" alt="" style="object-position:${s.pos}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}></div>
         <div class="slide-text">
           <h${i ? 2 : 1} class="slide-title">${s.title}</h${i ? 2 : 1}>
-          <p>${s.sub}</p>
-          <a href="${s.link}" class="btn btn-light">${s.cta}</a>
+          ${s.sub ? `<p>${s.sub}</p>` : ''}
+          <a href="${s.link}" class="btn btn-light" ${s.external ? 'target="_blank" rel="noopener"' : ''}>${s.cta}</a>
         </div>
       </div>`).join('')}
-    <div class="hero-dots">${slides.map((_, i) => `<button data-slide="${i}" class="${i === 0 ? 'active' : ''}" aria-label="${i + 1}"></button>`).join('')}</div>
+    <div class="hero-dots" ${slides.length < 2 ? 'hidden' : ''}>${slides.map((_, i) => `<button data-slide="${i}" class="${i === 0 ? 'active' : ''}" aria-label="${i + 1}"></button>`).join('')}</div>
   </section>
 
   ${carousel(t('newArrivals'), PRODUCTS.filter(p => p.isNew), 'shop.html?sort=new')}
@@ -116,6 +130,6 @@ function goTo(i) {
 }
 dotEls.forEach(d => d.onclick = () => { goTo(Number(d.dataset.slide)); restart(); });
 let timer;
-const restart = () => { clearInterval(timer); timer = setInterval(() => goTo(current + 1), 5500); };
+const restart = () => { clearInterval(timer); if (slideEls.length > 1) timer = setInterval(() => goTo(current + 1), 5500); };
 restart();
 });

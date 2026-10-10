@@ -92,11 +92,13 @@ function startApp(sb, session) {
     $('#tab-orders').hidden = t.dataset.tab !== 'orders';
     $('#tab-products').hidden = t.dataset.tab !== 'products';
     $('#tab-stats').hidden = t.dataset.tab !== 'stats';
+    $('#tab-banners').hidden = t.dataset.tab !== 'banners';
     if (t.dataset.tab === 'stats') Stats.load();
   });
   Orders.init(sb);
   Products.init(sb);
   Stats.init(sb);
+  Banners.init(sb);
 }
 
 /* ==========================================================
@@ -356,7 +358,7 @@ const Products = {
     $('#product-brand-filter').onchange = e => { this.brand = e.target.value; this.render(); };
     $('#product-add').onclick = () => this.open(null);
     $('#products-grid').addEventListener('click', e => this.onClick(e));
-    document.querySelectorAll('[data-close-dialog]').forEach(b => b.onclick = () => $('#product-dialog').close());
+    document.querySelectorAll('[data-close-dialog]').forEach(b => b.onclick = () => b.closest('dialog').close());
     $('#product-form').onsubmit = e => { e.preventDefault(); this.save(); };
     $('#image-input').onchange = e => this.upload([...e.target.files]);
     $('#product-form').addEventListener('input', e => {
@@ -892,3 +894,200 @@ function bindTips(root) {
     el.addEventListener('pointerleave', () => { el.classList.remove('hover'); tip.style.display = 'none'; });
   });
 }
+
+/* ==========================================================
+   الإعلانات (السلايدر في أعلى الصفحة الرئيسية)
+   ========================================================== */
+const LINK_TYPES = () => [
+  { group: 'عام', items: [['shop.html', '🛍️ المتجر (كل المنتجات)'], ['shop.html?sale=1', '🔥 التخفيضات'], ['shop.html?sort=new', '🆕 الجديد']] },
+  ...['brand', 'style', 'season', 'price'].map(g => ({
+    group: { brand: 'العلامة التجارية', style: 'الستايل', season: 'الفصل', price: 'السعر' }[g],
+    items: CATEGORIES[g].map(c => [`shop.html?${g}=${c.id}`, `${c.icon ? c.icon + ' ' : ''}${c.label.ar}`])
+  })),
+  { group: 'أخرى', items: [['product', '👟 منتج محدد'], ['url', '🔗 رابط آخر']] }
+];
+
+const Banners = {
+  sb: null, list: [], editing: null, image: null,
+
+  init(sb) {
+    this.sb = sb;
+    $('#banner-link-type').innerHTML = LINK_TYPES().map(g =>
+      `<optgroup label="${g.group}">${g.items.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</optgroup>`).join('');
+    $('#banner-link-type').onchange = () => this.toggleLinkFields();
+    $('#banner-add').onclick = () => this.open(null);
+    $('#banners-list').addEventListener('click', e => this.onClick(e));
+    $('#banner-image-input').onchange = e => this.upload(e.target.files[0]);
+    $('#banner-form [name=position]').onchange = () => this.preview();
+    $('#banner-form').onsubmit = e => { e.preventDefault(); this.save(); };
+    this.load();
+  },
+
+  async load() {
+    const { data, error } = await this.sb.from('ms_banners').select('*').order('sort_order').order('id');
+    const missing = error && /ms_banners|schema cache|does not exist/i.test(error.message);
+    $('#banners-warn').hidden = !missing;
+    if (error) { if (!missing) toast('تعذر تحميل الإعلانات: ' + error.message, true); this.list = []; this.render(); return; }
+    this.list = data;
+    this.render();
+  },
+
+  linkLabel(link) {
+    for (const g of LINK_TYPES()) for (const [v, l] of g.items) if (v === link) return l;
+    const m = /^product\.html\?id=(\d+)/.exec(link || '');
+    if (m) return `👟 ${Products.list.find(p => p.id === Number(m[1]))?.name || 'منتج #' + m[1]}`;
+    return `🔗 ${link}`;
+  },
+
+  render() {
+    const active = this.list.filter(b => b.active).length;
+    $('#banners-list').innerHTML = this.list.length ? this.list.map((b, i) => `
+      <article class="bcard ${b.active ? '' : 'off'}">
+        <div class="bcard-img"><img src="${esc(b.image)}" alt="" style="object-position:${esc(b.position)}" loading="lazy">
+          <span class="ptag ${b.active ? 'ptag-on' : ''}">${b.active ? '● ظاهر' : 'مخفي'}</span></div>
+        <div class="bcard-body">
+          <b>${esc(b.title_ar)}</b>
+          ${b.sub_ar ? `<span class="muted small">${esc(b.sub_ar)}</span>` : ''}
+          <span class="small">يفتح: ${esc(this.linkLabel(b.link))}</span>
+        </div>
+        <div class="bcard-actions">
+          <button class="btn btn-ghost btn-sm" data-up="${b.id}" ${i === 0 ? 'disabled' : ''} title="تقديم">▲</button>
+          <button class="btn btn-ghost btn-sm" data-down="${b.id}" ${i === this.list.length - 1 ? 'disabled' : ''} title="تأخير">▼</button>
+          <button class="btn btn-ghost btn-sm" data-edit="${b.id}">✏️ تعديل</button>
+          <button class="btn btn-ghost btn-sm" data-bvis="${b.id}">${b.active ? '🙈 إخفاء' : '👁️ إظهار'}</button>
+          <button class="btn btn-danger btn-sm" data-del="${b.id}">🗑️</button>
+        </div>
+      </article>`).join('')
+      : '<p class="empty">لا توجد إعلانات. اضغط "＋ إضافة إعلان". (بدون إعلانات تظهر الصور الافتراضية)</p>';
+    if (this.list.length && !active) $('#banners-list').insertAdjacentHTML('afterbegin', '<p class="warn">كل الإعلانات مخفية، لذلك تظهر الصور الافتراضية في الموقع.</p>');
+  },
+
+  onClick(e) {
+    const b = e.target.closest('[data-up],[data-down],[data-edit],[data-bvis],[data-del]');
+    if (!b) return;
+    const id = Number(b.dataset.up || b.dataset.down || b.dataset.edit || b.dataset.bvis || b.dataset.del);
+    const item = this.list.find(x => x.id === id);
+    if (b.dataset.up) this.move(id, -1);
+    else if (b.dataset.down) this.move(id, 1);
+    else if (b.dataset.edit) this.open(item);
+    else if (b.dataset.bvis) this.update(item, { active: !item.active }, item.active ? 'أُخفي الإعلان' : 'الإعلان ظاهر الآن');
+    else if (b.dataset.del) this.remove(item);
+  },
+
+  async move(id, dir) {
+    const i = this.list.findIndex(x => x.id === id), j = i + dir;
+    if (j < 0 || j >= this.list.length) return;
+    [this.list[i], this.list[j]] = [this.list[j], this.list[i]];
+    // إعادة ترقيم الكل حتى يكون الترتيب ثابتاً
+    const results = await Promise.all(this.list.map((x, k) => x.sort_order === k + 1 ? null
+      : this.sb.from('ms_banners').update({ sort_order: k + 1 }).eq('id', x.id).then(r => { if (!r.error) x.sort_order = k + 1; return r; })));
+    const err = results.find(r => r && r.error);
+    if (err) toast('تعذر تغيير الترتيب: ' + err.error.message, true);
+    this.render();
+  },
+
+  async update(item, patch, msg) {
+    const { error } = await this.sb.from('ms_banners').update(patch).eq('id', item.id);
+    if (error) return toast(error.message, true);
+    Object.assign(item, patch);
+    toast(msg);
+    this.render();
+  },
+
+  toggleLinkFields() {
+    const v = $('#banner-link-type').value;
+    $('#banner-product-wrap').hidden = v !== 'product';
+    $('#banner-url-wrap').hidden = v !== 'url';
+    $('#banner-form [name=link_url]').required = v === 'url';
+  },
+
+  open(b) {
+    this.editing = b;
+    const f = $('#banner-form');
+    f.reset();
+    $('#banner-error').hidden = true;
+    $('#banner-form-title').textContent = b ? 'تعديل الإعلان' : 'إضافة إعلان';
+    $('#banner-link-product').innerHTML = Products.list.map(p => `<option value="${p.id}">${esc(p.name)} — ${esc(label('brand', p.brand))}</option>`).join('');
+    ['title_ar', 'title_fr', 'sub_ar', 'sub_fr', 'cta_ar', 'cta_fr'].forEach(k => f[k].value = b?.[k] || '');
+    f.position.value = [...f.position.options].some(o => o.value === b?.position) ? b.position : '50% 50%';
+    f.active.checked = b ? b.active : true;
+    const link = b?.link || 'shop.html';
+    const known = LINK_TYPES().some(g => g.items.some(([v]) => v === link));
+    const prod = /^product\.html\?id=(\d+)/.exec(link);
+    f.link_type.value = known ? link : prod ? 'product' : 'url';
+    if (prod) f.link_product.value = prod[1];
+    if (!known && !prod) f.link_url.value = link;
+    this.image = b?.image || null;
+    this.toggleLinkFields();
+    this.preview();
+    $('#banner-dialog').showModal();
+  },
+
+  preview() {
+    const pos = $('#banner-form [name=position]').value;
+    $('#banner-preview').innerHTML = this.image
+      ? `<img src="${esc(this.image)}" alt="" style="object-position:${esc(pos)}"><span class="pv-label">معاينة الهاتف</span>`
+      : '<span class="muted">لم تُرفع صورة بعد</span>';
+  },
+
+  async upload(file) {
+    if (!file) return;
+    const lbl = $('#banner-dialog .upload span');
+    lbl.textContent = '⏳ جاري الرفع...';
+    try {
+      const blob = await shrink(file, 1600);
+      const path = `banners/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const { error } = await this.sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' });
+      if (error) throw error;
+      this.image = this.sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      $('#banner-error').hidden = true;
+      this.preview();
+    } catch (err) {
+      toast('فشل رفع الصورة: ' + (err.message || err), true);
+    }
+    lbl.textContent = '📷 رفع صورة';
+    $('#banner-image-input').value = '';
+  },
+
+  async save() {
+    const f = $('#banner-form');
+    const err = msg => { $('#banner-error').textContent = msg; $('#banner-error').hidden = false; };
+    $('#banner-error').hidden = true;
+    if (!this.image) return err('ارفع صورة للإعلان');
+    const type = f.link_type.value;
+    let link = type;
+    if (type === 'product') link = `product.html?id=${f.link_product.value}`;
+    if (type === 'url') {
+      link = f.link_url.value.trim();
+      if (!/^https:\/\//.test(link)) return err('الرابط يجب أن يبدأ بـ https://');
+    }
+    const clean = k => f[k].value.trim() || null;
+    const row = {
+      image: this.image, title_ar: f.title_ar.value.trim(), title_fr: clean('title_fr'),
+      sub_ar: clean('sub_ar'), sub_fr: clean('sub_fr'), cta_ar: clean('cta_ar'), cta_fr: clean('cta_fr'),
+      link, position: f.position.value, active: f.active.checked
+    };
+    if (!this.editing) row.sort_order = Math.max(0, ...this.list.map(b => b.sort_order)) + 1;
+    const btn = $('#banner-save');
+    btn.disabled = true;
+    const { error } = this.editing
+      ? await this.sb.from('ms_banners').update(row).eq('id', this.editing.id)
+      : await this.sb.from('ms_banners').insert(row);
+    btn.disabled = false;
+    if (error) return err('تعذر الحفظ: ' + error.message);
+    if (this.editing && this.editing.image !== row.image) Products.removeFiles([this.editing.image]);
+    $('#banner-dialog').close();
+    toast(this.editing ? 'تم حفظ الإعلان' : 'تمت إضافة الإعلان');
+    this.load();
+  },
+
+  async remove(b) {
+    if (!confirm(`حذف الإعلان "${b.title_ar}" نهائياً؟`)) return;
+    const { error } = await this.sb.from('ms_banners').delete().eq('id', b.id);
+    if (error) return toast(error.message, true);
+    Products.removeFiles([b.image]);
+    this.list = this.list.filter(x => x.id !== b.id);
+    toast('تم حذف الإعلان');
+    this.render();
+  }
+};

@@ -434,6 +434,19 @@ async function loadProducts() {
   }
 }
 
+/* الإعلانات المفعّلة (السلايدر) — null عند الفشل أو عدم وجود Supabase */
+async function fetchBanners() {
+  if (!HAS_DB) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ms_banners?select=*&active=eq.true&order=sort_order.asc,id.asc`, { headers: dbHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('تعذر تحميل الإعلانات، تُعرض الإعلانات الافتراضية:', err);
+    return null;
+  }
+}
+
 /* إرسال الطلب إلى جدول ms_orders — الأسعار يعيد حسابها الخادم */
 async function sendOrder(order) {
   if (!HAS_DB) {
