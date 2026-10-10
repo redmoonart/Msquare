@@ -35,6 +35,14 @@ python3 -m http.server 8000
 ```
 
 
-## استقبال الطلبات في Google Sheets
-كل طلب يُضاف كسطر في جدول Google Sheets عبر Google Apps Script.
-خطوات الإعداد في [`google-apps-script/README.md`](google-apps-script/README.md)، ثم ضع الرابط في `js/config.js`.
+## استقبال الطلبات (Netlify Forms)
+الطلبات تُرسل إلى **Netlify Forms** وتظهر في لوحة Netlify، ويمكن أن تصلك بالبريد.
+
+1. انشر الموقع على Netlify: اسحب مجلد المشروع إلى https://app.netlify.com/drop
+   أو اربط مستودع GitHub (Add new site ← Import an existing project).
+2. في لوحة الموقع: **Forms ← Enable form detection**، ثم أعد النشر (Deploys ← Trigger deploy).
+3. سيظهر نموذج باسم **order**، وكل طلب يظهر فيه.
+4. للإشعار بالبريد: **Site configuration ← Notifications ← Emails and webhooks ← Form submission notifications ← Add notification**.
+
+> النموذج يعمل فقط بعد النشر على Netlify. عند التشغيل المحلي يُحفظ الطلب في المتصفح فقط.
+> الخطة المجانية: 100 طلب شهرياً. الأسعار تُرسل من متصفح الزبون، فراجع المجموع عند تأكيد الطلب.

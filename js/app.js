@@ -377,18 +377,7 @@ function bindGlobal() {
     btn.textContent = t('sending');
     err.hidden = true;
     try {
-      if (ORDER_ENDPOINT) {
-        // text/plain = طلب بسيط بدون preflight، وهو ما يقبله Google Apps Script
-        const res = await fetch(ORDER_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(order)
-        });
-        const out = await res.json();
-        if (!out.ok) throw new Error(out.error || 'order_failed');
-      } else {
-        console.warn('ORDER_ENDPOINT فارغ في js/config.js — حُفظ الطلب محلياً فقط');
-      }
+      await sendOrder(order);
       store.set('ms_orders', [...store.get('ms_orders', []), order]);
       setCart([]);
       form.reset();
@@ -407,6 +396,35 @@ function bindGlobal() {
   document.getElementById('newsletter-form').onsubmit = e => {
     e.preventDefault(); e.target.reset(); toast(t('subscribed'));
   };
+}
+
+/* ---------- إرسال الطلب إلى Netlify Forms ----------
+   Netlify يكتشف النموذج المخفي "order" في index.html عند النشر،
+   ثم يستقبل الطلبات المرسلة إلى "/" بصيغة form-urlencoded. */
+async function sendOrder(order) {
+  const local = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (local) {
+    console.warn('تشغيل محلي: Netlify Forms يعمل فقط بعد النشر على Netlify — حُفظ الطلب في المتصفح فقط');
+    return;
+  }
+  const fields = {
+    'form-name': 'order',
+    'order-id': order.id,
+    name: order.name,
+    phone: order.phone,
+    wilaya: order.wilaya,
+    address: order.address,
+    items: order.items.map(i => `${i.name} (${i.brand}) — ${i.size} × ${i.qty} = ${i.lineTotal} DA`).join('\n'),
+    'items-count': order.items.reduce((s, i) => s + i.qty, 0),
+    total: `${order.total} DA`,
+    lang: order.lang
+  };
+  const res = await fetch('/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(fields).toString()
+  });
+  if (!res.ok) throw new Error(`order_failed_${res.status}`);
 }
 
 /* ---------- التشغيل ---------- */
