@@ -17,6 +17,7 @@ const catLabel = (group, id) => {
   const c = CATEGORIES[group].find(x => x.id === id);
   return c ? c.label[LANG] : id;
 };
+const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const formatPrice = n => `${n.toLocaleString('en-US')} ${t('da')}`;
 const getProduct = id => PRODUCTS.find(p => p.id === Number(id));
 const priceRangeOf = price => CATEGORIES.price.find(r => price >= r.min && price <= r.max).id;
@@ -184,7 +185,7 @@ function productCard(p) {
     <article class="card">
       <a href="product.html?id=${p.id}" class="card-media">
         ${productVisual(p)}
-        ${discount ? `<span class="tag tag-sale">-${discount}%</span>` : p.isNew ? `<span class="tag">${t('new')}</span>` : ''}
+        ${p.stock === false ? `<span class="tag tag-out">${t('outOfStock')}</span>` : discount ? `<span class="tag tag-sale">-${discount}%</span>` : p.isNew ? `<span class="tag">${t('new')}</span>` : ''}
       </a>
       <button class="card-wish ${wished ? 'active' : ''}" data-wish="${p.id}" aria-label="${t('wishlist')}">${ICONS.heart}</button>
       <div class="card-body">
@@ -398,36 +399,66 @@ function bindGlobal() {
   };
 }
 
-/* ---------- إرسال الطلب إلى Netlify Forms ----------
-   Netlify يكتشف النموذج المخفي "order" في index.html عند النشر،
-   ثم يستقبل الطلبات المرسلة إلى "/" بصيغة form-urlencoded. */
+/* ---------- Supabase ----------
+   القراءة والإرسال عبر REST مباشرة (بدون مكتبة) — المكتبة تُحمَّل فقط في لوحة الإدارة. */
+const HAS_DB = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+const dbHeaders = () => ({ apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` });
+
+/* تحويل سطر من جدول ms_products إلى شكل المنتج المستعمل في الموقع */
+function fromRow(r) {
+  return {
+    id: r.id, name: r.name, brand: r.brand, style: r.style, seasons: r.seasons || [],
+    price: r.price, oldPrice: r.old_price || undefined, colors: r.colors,
+    image: (r.images && r.images[0]) || r.image || undefined, images: r.images || [],
+    sizes: r.sizes && r.sizes.length ? r.sizes : SIZES,
+    isNew: r.is_new, best: r.best, stock: r.stock,
+    description: { ar: r.description_ar, fr: r.description_fr }
+  };
+}
+
+async function loadProducts() {
+  if (!HAS_DB) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ms_products?select=*&order=sort_order.asc,id.desc`, { headers: dbHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    if (rows.length) PRODUCTS.splice(0, PRODUCTS.length, ...rows.map(fromRow));
+  } catch (err) {
+    console.error('تعذر تحميل المنتجات من Supabase، تُعرض المنتجات المحلية:', err);
+  }
+}
+
+/* إرسال الطلب إلى جدول ms_orders — الأسعار يعيد حسابها الخادم */
 async function sendOrder(order) {
-  const local = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
-  if (local) {
-    console.warn('تشغيل محلي: Netlify Forms يعمل فقط بعد النشر على Netlify — حُفظ الطلب في المتصفح فقط');
+  if (!HAS_DB) {
+    console.warn('Supabase غير مُعدّ في js/config.js — حُفظ الطلب في المتصفح فقط');
     return;
   }
-  const fields = {
-    'form-name': 'order',
-    'order-id': order.id,
-    name: order.name,
-    phone: order.phone,
-    wilaya: order.wilaya,
-    address: order.address,
-    items: order.items.map(i => `${i.name} (${i.brand}) — ${i.size} × ${i.qty} = ${i.lineTotal} DA`).join('\n'),
-    'items-count': order.items.reduce((s, i) => s + i.qty, 0),
-    total: `${order.total} DA`,
-    lang: order.lang
-  };
-  const res = await fetch('/', {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/ms_orders`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(fields).toString()
+    headers: { ...dbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      ref: order.id,
+      customer_name: order.name,
+      phone: order.phone,
+      wilaya: order.wilaya,
+      address: order.address,
+      items: order.items.map(i => ({ id: i.id, size: String(i.size), qty: i.qty })),
+      total: order.total,
+      lang: order.lang
+    })
   });
-  if (!res.ok) throw new Error(`order_failed_${res.status}`);
+  if (!res.ok) throw new Error(`order_failed_${res.status}: ${await res.text()}`);
 }
 
 /* ---------- التشغيل ---------- */
+/* تحميل المنتجات ثم رسم الصفحة */
+async function boot(render) {
+  await loadProducts();
+  initLayout();
+  render();
+}
+
 function initLayout() {
   document.documentElement.lang = LANG;
   document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';

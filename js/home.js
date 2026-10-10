@@ -1,5 +1,5 @@
 /* الصفحة الرئيسية */
-initLayout();
+boot(() => {
 
 const byId = ids => ids.map(getProduct);
 const slides = [
@@ -120,3 +120,4 @@ dotEls.forEach(d => d.onclick = () => { goTo(Number(d.dataset.slide)); restart()
 let timer;
 const restart = () => { clearInterval(timer); timer = setInterval(() => goTo(current + 1), 5500); };
 restart();
+});

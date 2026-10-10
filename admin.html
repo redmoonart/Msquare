@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>لوحة الإدارة | M SQUARE</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <!-- تسجيل الدخول -->
+  <section class="login" id="login-view" hidden>
+    <form class="login-box" id="login-form">
+      <div class="brand"><img src="assets/favicon.svg" alt=""><strong>M SQUARE</strong></div>
+      <h1>لوحة الإدارة</h1>
+      <label>البريد الإلكتروني<input type="email" name="email" required autocomplete="username"></label>
+      <label>كلمة المرور<input type="password" name="password" required autocomplete="current-password"></label>
+      <p class="error" id="login-error" hidden></p>
+      <button class="btn btn-dark" type="submit">دخول</button>
+      <a href="index.html" class="muted small">← العودة إلى المتجر</a>
+    </form>
+  </section>
+
+  <!-- إعداد ناقص -->
+  <section class="login" id="setup-view" hidden>
+    <div class="login-box">
+      <div class="brand"><img src="assets/favicon.svg" alt=""><strong>M SQUARE</strong></div>
+      <h1>Supabase غير مُعدّ</h1>
+      <p>ضع <code>SUPABASE_URL</code> و <code>SUPABASE_ANON_KEY</code> في الملف <code>js/config.js</code>، ثم شغّل <code>supabase/setup.sql</code> في Supabase SQL Editor.</p>
+    </div>
+  </section>
+
+  <!-- اللوحة -->
+  <div class="app" id="app-view" hidden>
+    <header class="topbar">
+      <div class="brand"><img src="assets/favicon.svg" alt=""><strong>M SQUARE</strong><span class="muted">الإدارة</span></div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="orders">🧾 الطلبات <span class="pill" id="new-badge" hidden></span></button>
+        <button class="tab" data-tab="products">👟 المنتجات</button>
+      </nav>
+      <div class="topbar-end">
+        <a href="index.html" target="_blank" class="btn btn-ghost btn-sm">🛍️ المتجر</a>
+        <button class="btn btn-ghost btn-sm" id="logout">خروج</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- الطلبات -->
+      <section id="tab-orders">
+        <div class="stats" id="stats"></div>
+        <div class="toolbar">
+          <input type="search" id="order-search" placeholder="🔎 بحث بالاسم، الهاتف، رقم الطلب، الولاية...">
+          <button class="btn btn-ghost" id="orders-refresh">🔄 تحديث</button>
+          <button class="btn btn-ghost" id="orders-csv">⬇️ تصدير CSV</button>
+        </div>
+        <div class="chips" id="order-filters"></div>
+        <p class="warn" id="blocked-warn" hidden>⚠️ جدول الأرقام المحظورة غير موجود — شغّل <code>supabase/setup.sql</code> كاملاً.</p>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>الطلب</th><th>الزبون</th><th>الولاية</th><th>المجموع</th><th>الحالة</th><th></th></tr></thead>
+            <tbody id="orders-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- المنتجات -->
+      <section id="tab-products" hidden>
+        <div class="toolbar">
+          <input type="search" id="product-search" placeholder="🔎 بحث عن منتج...">
+          <select id="product-brand-filter"><option value="">كل العلامات</option></select>
+          <button class="btn btn-dark" id="product-add">＋ إضافة منتج</button>
+        </div>
+        <div class="product-grid" id="products-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- نموذج المنتج -->
+  <dialog class="dialog" id="product-dialog">
+    <form id="product-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="product-form-title">إضافة منتج</h2>
+        <button type="button" class="icon-btn" data-close-dialog>✕</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-grid">
+          <label class="span-2">اسم المنتج *<input name="name" required maxlength="120" placeholder="مثال: Air Pulse Runner"></label>
+          <label>العلامة التجارية *<select name="brand" required></select></label>
+          <label>الستايل *<select name="style" required></select></label>
+          <label>السعر (دج) *<input name="price" type="number" min="0" step="50" required></label>
+          <label>السعر قبل التخفيض (اختياري)<input name="old_price" type="number" min="0" step="50"></label>
+          <p class="hint span-2" id="price-hint"></p>
+
+          <fieldset class="span-2">
+            <legend>الفصول *</legend>
+            <div class="check-row" id="season-checks"></div>
+          </fieldset>
+
+          <fieldset class="span-2">
+            <legend>المقاسات المتوفرة *</legend>
+            <div class="check-row" id="size-checks"></div>
+          </fieldset>
+
+          <fieldset class="span-2">
+            <legend>الصور</legend>
+            <div class="images" id="images-list"></div>
+            <label class="upload">
+              <input type="file" id="image-input" accept="image/*" multiple hidden>
+              <span>📷 رفع صور</span>
+            </label>
+            <p class="hint">الصورة الأولى هي الرئيسية. يمكنك سحب الصور لتغيير الترتيب. إذا لم ترفع صوراً يُعرض رسم الحذاء بالألوان التالية:</p>
+            <div class="colors">
+              <label>الجزء العلوي<input type="color" name="color0"></label>
+              <label>التفاصيل<input type="color" name="color1"></label>
+              <label>النعل<input type="color" name="color2"></label>
+              <div class="color-preview" id="color-preview"></div>
+            </div>
+          </fieldset>
+
+          <label class="span-2">الوصف بالعربية<textarea name="description_ar" rows="3" maxlength="1500"></textarea></label>
+          <label class="span-2">الوصف بالفرنسية<textarea name="description_fr" rows="3" maxlength="1500" dir="ltr"></textarea></label>
+
+          <div class="toggles span-2">
+            <label class="toggle"><input type="checkbox" name="stock"><span></span>متوفر</label>
+            <label class="toggle"><input type="checkbox" name="is_new"><span></span>جديد</label>
+            <label class="toggle"><input type="checkbox" name="best"><span></span>الأكثر مبيعاً</label>
+            <label>الترتيب<input name="sort_order" type="number" step="1" class="short"></label>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <p class="error" id="product-error" hidden></p>
+        <button type="button" class="btn btn-ghost" data-close-dialog>إلغاء</button>
+        <button type="submit" class="btn btn-dark" id="product-save">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/shoe.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

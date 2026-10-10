@@ -1,5 +1,5 @@
 /* صفحة المتجر — التصفية حسب: العلامة التجارية / الستايل / السعر / الفصول */
-initLayout();
+boot(() => {
 
 const GROUPS = ['brand', 'style', 'price', 'season'];
 const params = new URLSearchParams(location.search);
@@ -170,3 +170,4 @@ document.getElementById('filters-apply').onclick = closeFilters;
 document.querySelectorAll('.search-box input').forEach(i => i.value = state.q);
 
 render();
+});

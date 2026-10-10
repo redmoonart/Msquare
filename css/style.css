@@ -402,3 +402,9 @@ ul { list-style: none; }
 .card-title, .pdp-info h1, .line-info strong, .crumbs span:last-child { unicode-bidi: plaintext; }
 @media (max-width: 640px) { .sort select { font-size: 13px; } }
 [dir="rtl"] .card-title, [dir="rtl"] .pdp-info h1, [dir="rtl"] .line-info strong { text-align: right; }
+
+.tag-out { background: #555; color: #fff; }
+.pdp-desc { font-size: 15px; line-height: 1.8; color: #333; white-space: pre-line; }
+.sizes button:disabled { opacity: .4; cursor: not-allowed; text-decoration: line-through; }
+.pdp-main img, .pdp-thumbs img, .card-media img, .line-img img { width: 100%; height: 100%; object-fit: cover; }
+.pdp-main:has(img), .card-media:has(img) { padding: 0; }
