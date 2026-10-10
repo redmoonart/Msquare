@@ -402,7 +402,10 @@ function bindGlobal() {
 /* ---------- Supabase ----------
    القراءة والإرسال عبر REST مباشرة (بدون مكتبة) — المكتبة تُحمَّل فقط في لوحة الإدارة. */
 const HAS_DB = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
-const dbHeaders = () => ({ apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` });
+// المفتاح القديم (anon) هو JWT ويُرسل أيضاً في Authorization، المفتاح الجديد (sb_publishable_) يُرسل في apikey فقط
+const dbHeaders = () => SUPABASE_ANON_KEY.startsWith('eyJ')
+  ? { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+  : { apikey: SUPABASE_ANON_KEY };
 
 /* تحويل سطر من جدول ms_products إلى شكل المنتج المستعمل في الموقع */
 function fromRow(r) {
