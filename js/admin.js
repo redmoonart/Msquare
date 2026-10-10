@@ -91,9 +91,12 @@ function startApp(sb, session) {
     document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
     $('#tab-orders').hidden = t.dataset.tab !== 'orders';
     $('#tab-products').hidden = t.dataset.tab !== 'products';
+    $('#tab-stats').hidden = t.dataset.tab !== 'stats';
+    if (t.dataset.tab === 'stats') Stats.load();
   });
   Orders.init(sb);
   Products.init(sb);
+  Stats.init(sb);
 }
 
 /* ==========================================================
@@ -579,4 +582,313 @@ function toHex(c) {
   if (/^#[0-9a-f]{6}$/i.test(c)) return c;
   if (/^#[0-9a-f]{3}$/i.test(c)) return '#' + [...c.slice(1)].map(x => x + x).join('');
   return '#000000';
+}
+
+/* ==========================================================
+   الإحصائيات
+   ========================================================== */
+const Stats = {
+  sb: null, days: 7, data: null, loading: false,
+
+  init(sb) {
+    this.sb = sb;
+    $('#stats-period').onclick = e => {
+      const b = e.target.closest('[data-days]');
+      if (!b) return;
+      this.days = Number(b.dataset.days);
+      document.querySelectorAll('#stats-period .chip').forEach(c => c.classList.toggle('active', c === b));
+      this.load();
+    };
+    $('#stats-refresh').onclick = () => this.load();
+  },
+
+  async load() {
+    if (this.loading) return;
+    this.loading = true;
+    $('#stats-body').classList.add('is-loading');
+    const { data, error } = await this.sb.rpc('ms_stats', { days: this.days });
+    this.loading = false;
+    $('#stats-body').classList.remove('is-loading');
+    const missing = error && /ms_stats|function|schema cache/i.test(error.message);
+    $('#stats-warn').hidden = !missing;
+    if (error) {
+      $('#stats-body').innerHTML = missing ? '' : `<p class="empty">تعذر تحميل الإحصائيات: ${esc(error.message)}</p>`;
+      return;
+    }
+    this.data = data;
+    this.render();
+  },
+
+  render() {
+    const d = this.data, T = d.totals;
+    const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+    const conv = pct(T.good_orders, T.visitors);
+
+    $('#stats-body').innerHTML = `
+      <div class="kpis">
+        ${kpi('👥 الزوار', T.visitors.toLocaleString('en-US'), `${T.page_views.toLocaleString('en-US')} مشاهدة صفحة`)}
+        ${kpi('👟 مشاهدات المنتجات', T.product_views.toLocaleString('en-US'), T.visitors ? `${(T.product_views / T.visitors).toFixed(1)} لكل زائر` : '')}
+        ${kpi('🛒 إضافات للسلة', T.add_to_cart.toLocaleString('en-US'), `${T.abandoned_carts} سلة متروكة`)}
+        ${kpi('🧾 الطلبات', T.orders.toLocaleString('en-US'), `${T.items_sold} قطعة مباعة`)}
+        ${kpi('🎯 نسبة التحويل', conv + '%', 'من الزوار إلى طلب')}
+        ${kpi('💰 المبيعات', money(T.revenue), T.good_orders ? `متوسط الطلب ${money(Math.round(T.revenue / T.good_orders))}` : 'بدون الملغاة والمرفوضة')}
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>الزوار يومياً</h3><span class="muted small">مرّر على العمود لرؤية التفاصيل</span></div>
+        <div class="chart-scroll">${this.dailyChart(d.daily)}</div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-head"><h3>رحلة الزائر</h3><span class="muted small">زوار مختلفون في كل مرحلة</span></div>
+          ${this.funnel(d.funnel)}
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>💡 أمور يجب أن تعرفها</h3></div>
+          <ul class="insights">${this.insights().map(i => `<li class="${i.tone}">${i.text}</li>`).join('') || '<li>لا توجد بيانات كافية بعد. شارك رابط المتجر لتبدأ الإحصائيات.</li>'}</ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>👀 المنتجات الأكثر مشاهدة</h3></div>
+        ${this.topViewed(d.top_viewed)}
+      </div>
+
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-head"><h3>🏆 الأكثر مبيعاً</h3></div>
+          ${barList(d.best_sellers.map(p => ({ label: p.name, sub: label('brand', p.brand), n: p.qty, extra: money(p.revenue), href: `product.html?id=${p.id}` })), 'قطعة')}
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>📍 الولايات الأكثر طلباً</h3></div>
+          ${barList(d.wilayas.map(w => ({ label: w.wilaya, n: w.n, extra: money(w.revenue) })), 'طلب')}
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-head"><h3>🔎 ماذا يبحث الزوار؟</h3></div>
+          ${barList(d.searches.map(s => ({ label: s.term, n: s.n })), 'بحث')}
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>🎛️ الفلاتر الأكثر استعمالاً</h3></div>
+          ${barList(d.filters.map(f => ({ label: filterLabel(f.value), n: f.n })), 'مرة')}
+        </div>
+      </div>
+
+      <div class="panel-grid three">
+        <div class="panel">
+          <div class="panel-head"><h3>🌐 من أين يأتي الزوار؟</h3></div>
+          ${barList(d.referrers.map(r => ({ label: sourceLabel(r.source), n: r.n })), 'زائر')}
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>📱 الأجهزة</h3></div>
+          ${barList(['mobile', 'desktop', 'tablet'].filter(k => d.devices[k]).map(k => ({ label: { mobile: '📱 هاتف', desktop: '💻 كمبيوتر', tablet: '📟 لوحي' }[k], n: d.devices[k] })), 'زائر')}
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>📄 الصفحات</h3></div>
+          ${barList(d.pages.map(p => ({ label: pageLabel(p.path), n: p.n })), 'مشاهدة')}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>🕒 ساعات الزيارة</h3><span class="muted small">توقيت الجزائر — أفضل وقت لنشر الإعلانات</span></div>
+        <div class="chart-scroll">${this.hoursChart(d.hours)}</div>
+      </div>`;
+    bindTips($('#stats-body'));
+  },
+
+  dailyChart(rows) {
+    if (!rows.length) return '<p class="empty">لا توجد بيانات</p>';
+    const W = 900, H = 220, P = { t: 12, r: 8, b: 26, l: 36 };
+    const max = Math.max(1, ...rows.map(r => r.visitors));
+    const step = niceStep(max), top = Math.ceil(max / step) * step;
+    const iw = W - P.l - P.r, ih = H - P.t - P.b, bw = iw / rows.length;
+    const gap = Math.min(6, bw * 0.25);
+    const y = v => P.t + ih - (v / top) * ih;
+    const ticks = []; for (let v = 0; v <= top; v += step) ticks.push(v);
+    const every = Math.ceil(rows.length / 10);
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="الزوار يومياً">
+      ${ticks.map(v => `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${P.l - 6}" y="${y(v) + 4}" class="axis" text-anchor="end">${v}</text>`).join('')}
+      ${rows.map((r, i) => {
+        const x = P.l + i * bw + gap / 2, w = Math.max(2, bw - gap), h = Math.max(r.visitors ? 2 : 0, ih - (y(r.visitors) - P.t));
+        const day = new Date(r.day + 'T00:00:00');
+        const lbl = day.toLocaleDateString('ar-DZ', { weekday: 'short', day: 'numeric', month: 'numeric' });
+        return `<g class="hit" data-tip="${esc(lbl)}<br><b>${r.visitors}</b> زائر · <b>${r.orders}</b> طلب">
+          <rect x="${P.l + i * bw}" y="${P.t}" width="${bw}" height="${ih}" fill="transparent"/>
+          <path d="${barPath(x, P.t + ih - h, w, h)}" class="bar"/>
+          ${i % every === 0 ? `<text x="${x + w / 2}" y="${H - 8}" class="axis" text-anchor="middle">${day.getDate()}/${day.getMonth() + 1}</text>` : ''}
+        </g>`;
+      }).join('')}
+    </svg>`;
+  },
+
+  hoursChart(rows) {
+    const W = 900, H = 150, P = { t: 10, r: 8, b: 22, l: 8 };
+    const max = Math.max(1, ...rows.map(r => r.n));
+    const iw = W - P.l - P.r, ih = H - P.t - P.b, bw = iw / 24, gap = 4;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="ساعات الزيارة">
+      <line x1="${P.l}" x2="${W - P.r}" y1="${P.t + ih}" y2="${P.t + ih}" class="grid"/>
+      ${rows.map((r, i) => {
+        const x = P.l + i * bw + gap / 2, w = bw - gap, h = r.n ? Math.max(2, (r.n / max) * ih) : 0;
+        return `<g class="hit" data-tip="الساعة ${r.hour}:00 – ${r.hour}:59<br><b>${r.n}</b> مشاهدة">
+          <rect x="${P.l + i * bw}" y="${P.t}" width="${bw}" height="${ih}" fill="transparent"/>
+          <path d="${barPath(x, P.t + ih - h, w, h)}" class="bar ${r.n === max && r.n ? 'bar-peak' : ''}"/>
+          ${i % 3 === 0 ? `<text x="${x + w / 2}" y="${H - 6}" class="axis" text-anchor="middle">${r.hour}h</text>` : ''}
+        </g>`;
+      }).join('')}
+    </svg>`;
+  },
+
+  funnel(f) {
+    const steps = [
+      ['زاروا المتجر', f.visitors], ['شاهدوا منتجاً', f.product_view], ['أضافوا للسلة', f.add_to_cart],
+      ['فتحوا نموذج الطلب', f.checkout], ['أكملوا الطلب', f.order]
+    ];
+    const top = Math.max(1, f.visitors);
+    return `<div class="funnel">${steps.map(([name, n], i) => {
+      const prev = i ? steps[i - 1][1] : 0;
+      const drop = i && prev ? Math.round((1 - n / prev) * 100) : null;
+      return `<div class="f-row">
+        <span class="f-name">${name}</span>
+        <div class="f-track"><div class="f-bar" style="width:${Math.min(100, Math.max(n ? 2 : 0, n / top * 100))}%"></div></div>
+        <span class="f-n"><b>${n}</b> <span class="muted small">${Math.min(100, Math.round(n / top * 100))}%</span></span>
+        ${drop !== null && drop > 0 ? `<span class="f-drop">↓ ${drop}% توقفوا هنا</span>` : ''}
+      </div>`;
+    }).join('')}</div>`;
+  },
+
+  topViewed(rows) {
+    if (!rows.length) return '<p class="empty">لم يشاهد أحد أي منتج بعد في هذه الفترة</p>';
+    const max = Math.max(...rows.map(r => r.views));
+    return `<div class="table-wrap flat"><table class="table compact">
+      <thead><tr><th>المنتج</th><th>المشاهدات</th><th>زوار مختلفون</th><th>أُضيف للسلة</th><th>بيع</th><th>التحويل</th></tr></thead>
+      <tbody>${rows.map((p, i) => {
+        const rate = p.viewers ? Math.round(p.sold / p.viewers * 100) : 0;
+        return `<tr>
+          <td><a class="prod" href="product.html?id=${p.id}" target="_blank">
+            <span class="rank">${i + 1}</span>
+            <span class="thumb">${p.image ? `<img src="${esc(p.image)}" alt="">` : shoeSVG({ name: p.name, style: p.style, colors: p.colors || ['#111', '#fff', '#eee'] })}</span>
+            <span><b>${esc(p.name)}</b><span class="muted small">${esc(label('brand', p.brand))} · ${money(p.price)}${p.stock ? '' : ' · <span class="bad">نفد</span>'}</span></span>
+          </a></td>
+          <td><div class="inline-bar"><span style="width:${p.views / max * 100}%"></span><b>${p.views}</b></div></td>
+          <td>${p.viewers}</td>
+          <td>${p.adds}</td>
+          <td><b>${p.sold}</b></td>
+          <td>${rate}%</td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+  },
+
+  insights() {
+    const d = this.data, T = d.totals, f = d.funnel, out = [];
+    const add = (tone, text) => out.push({ tone, text });
+    if (!T.visitors) return out;
+
+    const conv = T.visitors ? T.good_orders / T.visitors * 100 : 0;
+    add(conv >= 1 ? 'good' : 'warn', `نسبة التحويل <b>${conv.toFixed(1)}%</b> — ${conv >= 2 ? 'ممتازة لمتجر إلكتروني' : conv >= 1 ? 'جيدة (المعدل المعتاد 1–3%)' : 'منخفضة: جرّب صوراً أوضح، أسعاراً أو عروضاً أفضل'}.`);
+
+    if (T.abandoned_carts > 0)
+      add('warn', `<b>${T.abandoned_carts}</b> زائر أضاف منتجاً للسلة ولم يكمل الطلب. ${f.checkout < f.add_to_cart ? 'كثيرون لم يفتحوا نموذج الطلب أصلاً.' : ''}`);
+
+    if (f.checkout > 0 && f.order < f.checkout)
+      add('warn', `<b>${f.checkout - f.order}</b> زائر فتح نموذج الطلب ولم يرسله — ربما سعر التوصيل أو طول النموذج.`);
+
+    const cold = d.top_viewed.filter(p => p.viewers >= 5 && p.sold === 0);
+    if (cold.length)
+      add('warn', `منتجات يشاهدها الزوار كثيراً ولا تُباع: ${cold.slice(0, 3).map(p => `<b>${esc(p.name)}</b> (${p.viewers} زائر)`).join('، ')} — راجع السعر أو الصور أو المقاسات.`);
+
+    const outViewed = d.top_viewed.filter(p => !p.stock);
+    if (outViewed.length)
+      add('warn', `منتجات نفدت وما زال الزوار يبحثون عنها: ${outViewed.slice(0, 3).map(p => `<b>${esc(p.name)}</b>`).join('، ')} — فكّر في إعادة التوفير.`);
+
+    if (d.top_viewed[0])
+      add('good', `المنتج الأكثر جذباً: <b>${esc(d.top_viewed[0].name)}</b> بـ ${d.top_viewed[0].views} مشاهدة — ضعه في الإعلانات.`);
+
+    if (d.never_viewed.length)
+      add('', `<b>${d.never_viewed.length}</b> منتجاً متوفراً لم يشاهده أحد في هذه الفترة.`);
+
+    const mob = d.devices.mobile || 0, all = Object.values(d.devices).reduce((a, b) => a + b, 0);
+    if (all) add('', `<b>${Math.round(mob / all * 100)}%</b> من الزوار على الهاتف.`);
+
+    const src = d.referrers.find(r => r.source);
+    if (src) add('good', `أكبر مصدر زوار خارجي: <b>${esc(sourceLabel(src.source))}</b> (${src.n} زائر).`);
+
+    const peak = d.hours.reduce((a, b) => (b.n > a.n ? b : a), { n: 0 });
+    if (peak.n) add('', `أكثر ساعة زيارة: <b>${peak.hour}:00 – ${peak.hour + 1}:00</b> — أفضل وقت لنشر منشور أو إعلان.`);
+
+    if (d.searches[0]) add('', `أكثر كلمة بحث: <b>"${esc(d.searches[0].term)}"</b> (${d.searches[0].n} مرة).`);
+
+    if (d.statuses.refused) add('warn', `<b>${d.statuses.refused}</b> طلب رُفض عند الاستلام في هذه الفترة — اتصل بالزبون لتأكيد كل طلب قبل الشحن.`);
+    return out;
+  }
+};
+
+function kpi(title, value, sub) {
+  return `<div class="stat"><span>${title}</span><strong>${value}</strong>${sub ? `<em>${sub}</em>` : ''}</div>`;
+}
+
+/* قائمة بأعمدة أفقية (لون واحد) */
+function barList(items, unit) {
+  if (!items.length) return '<p class="empty">لا توجد بيانات</p>';
+  const max = Math.max(...items.map(i => i.n));
+  return `<ul class="bar-list">${items.map(i => `
+    <li data-tip="${esc(i.label)}<br><b>${i.n}</b> ${unit}${i.extra ? ` · ${esc(i.extra)}` : ''}">
+      <div class="bl-top">
+        ${i.href ? `<a href="${i.href}" target="_blank">${esc(i.label)}</a>` : `<span>${esc(i.label)}</span>`}
+        ${i.sub ? `<span class="muted small">${esc(i.sub)}</span>` : ''}
+        <b>${i.n}</b>
+      </div>
+      <div class="bl-track"><span style="width:${i.n / max * 100}%"></span></div>
+    </li>`).join('')}</ul>`;
+}
+
+function filterLabel(v) {
+  const [g, id] = String(v).split(':');
+  const names = { brand: 'العلامة', style: 'الستايل', price: 'السعر', season: 'الفصل' };
+  return CATEGORIES[g] ? `${names[g]}: ${label(g, id)}` : v;
+}
+function sourceLabel(s) {
+  if (!s) return '🔗 مباشر / غير معروف';
+  if (/facebook|fb\./.test(s)) return '📘 فيسبوك';
+  if (/instagram/.test(s)) return '📸 إنستغرام';
+  if (/tiktok/.test(s)) return '🎵 تيك توك';
+  if (/google/.test(s)) return '🔍 غوغل';
+  if (/whatsapp|wa\.me/.test(s)) return '💬 واتساب';
+  if (/youtube/.test(s)) return '▶️ يوتيوب';
+  return s;
+}
+function pageLabel(p) {
+  if (/product/.test(p)) return 'صفحات المنتجات';
+  if (/shop/.test(p)) return 'المتجر والتصفية';
+  if (p === '/' || /index/.test(p)) return 'الصفحة الرئيسية';
+  return p;
+}
+function niceStep(max) {
+  const raw = max / 4, mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+  return [1, 2, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+}
+/* عمود بحافة علوية دائرية 4px مثبت على الخط الأساسي */
+function barPath(x, y, w, h) {
+  if (h <= 0) return '';
+  const r = Math.min(4, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+/* تلميح عند المرور / اللمس */
+function bindTips(root) {
+  let tip = document.getElementById('chart-tip');
+  if (!tip) { tip = document.createElement('div'); tip.id = 'chart-tip'; tip.className = 'chart-tip'; document.body.appendChild(tip); }
+  const show = (el, x, y) => {
+    tip.innerHTML = el.dataset.tip;
+    tip.style.display = 'block';
+    const r = tip.getBoundingClientRect();
+    tip.style.left = Math.min(window.innerWidth - r.width - 8, Math.max(8, x - r.width / 2)) + 'px';
+    tip.style.top = Math.max(8, y - r.height - 12) + 'px';
+  };
+  root.querySelectorAll('[data-tip]').forEach(el => {
+    el.addEventListener('pointerenter', e => { el.classList.add('hover'); show(el, e.clientX, e.clientY); });
+    el.addEventListener('pointermove', e => show(el, e.clientX, e.clientY));
+    el.addEventListener('pointerleave', () => { el.classList.remove('hover'); tip.style.display = 'none'; });
+  });
 }

@@ -154,3 +154,75 @@ legend { font-size: 13px; font-weight: 800; padding-inline: 6px; }
   .form-grid { grid-template-columns: 1fr; }
   .details-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- الإحصائيات ---------- */
+.stats-toolbar { align-items: center; justify-content: space-between; }
+.stats-toolbar .chips { margin: 0; }
+#stats-body.is-loading { opacity: .5; pointer-events: none; }
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat em { font-style: normal; font-size: 12px; color: var(--muted); }
+.panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; min-width: 0; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.panel-head h3 { font-size: 16px; font-weight: 900; }
+.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.panel-grid.three { grid-template-columns: repeat(3, 1fr); }
+.panel-grid > .panel { margin-bottom: 16px; }
+
+.chart { width: 100%; height: auto; display: block; direction: ltr; }
+.chart .grid { stroke: #ececec; stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.chart .bar { fill: #3d3d3d; transition: fill .15s; }
+.chart .bar-peak { fill: var(--black); }
+.chart .hit.hover .bar { fill: var(--black); }
+.chart .hit { cursor: default; }
+.chart-tip { position: fixed; z-index: 60; display: none; pointer-events: none; background: var(--black); color: #fff; font-size: 12px; line-height: 1.6; padding: 6px 10px; border-radius: 6px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+
+.funnel { display: grid; gap: 12px; }
+.f-row { display: grid; grid-template-columns: 130px 1fr 80px; align-items: center; gap: 10px; font-size: 14px; }
+.f-name { font-weight: 700; }
+.f-track { height: 14px; background: var(--soft); border-radius: 4px; overflow: hidden; }
+.f-bar { height: 100%; background: #3d3d3d; border-radius: 0 4px 4px 0; }
+[dir=rtl] .f-bar { border-radius: 4px 0 0 4px; margin-inline-start: 0; }
+.f-n { text-align: end; }
+.f-drop { grid-column: 2 / -1; font-size: 12px; color: var(--amber); font-weight: 700; margin-top: -8px; }
+
+.insights { list-style: none; display: grid; gap: 8px; font-size: 14px; }
+.insights li { padding: 10px 12px; border-radius: 8px; background: var(--soft); border-inline-start: 4px solid #bbb; }
+.insights li.good { background: #eef7f0; border-color: var(--green); }
+.insights li.warn { background: #fff6e8; border-color: var(--amber); }
+
+.bar-list { list-style: none; display: grid; gap: 10px; }
+.bl-top { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.bl-top > :first-child { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bl-top b { margin-inline-start: auto; }
+.bl-track { height: 8px; background: var(--soft); border-radius: 4px; margin-top: 4px; overflow: hidden; }
+.bl-track span { display: block; height: 100%; background: #3d3d3d; border-radius: 4px; }
+.bar-list li.hover .bl-track span { background: var(--black); }
+
+.table-wrap.flat { border: 0; border-radius: 0; }
+.table.compact { min-width: 640px; }
+.table.compact td { vertical-align: middle; padding: 10px 12px; }
+.prod { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.prod > span:last-child { display: grid; }
+.rank { width: 22px; font-weight: 900; color: var(--muted); text-align: center; }
+.thumb { width: 54px; height: 42px; border-radius: 6px; background: var(--soft); display: grid; place-items: center; overflow: hidden; flex: none; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb svg { width: 100%; }
+.bad { color: var(--red); font-weight: 700; }
+.inline-bar { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.inline-bar span { height: 8px; background: #3d3d3d; border-radius: 4px; min-width: 2px; }
+
+@media (max-width: 1100px) {
+  .kpis { grid-template-columns: repeat(3, 1fr); }
+  .panel-grid.three { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .panel-grid, .panel-grid.three { grid-template-columns: 1fr; gap: 0; }
+  .f-row { grid-template-columns: 100px 1fr 64px; font-size: 13px; }
+  .stats-toolbar .chips { overflow-x: auto; flex-wrap: nowrap; }
+  .chart-scroll { overflow-x: auto; margin-inline: -8px; padding-inline: 8px; }
+  .chart-scroll .chart { min-width: 640px; }
+  .tab { padding-inline: 12px; font-size: 14px; height: 36px; }
+  .tabs { gap: 2px; }
+}

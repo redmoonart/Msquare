@@ -39,6 +39,7 @@
     <header class="topbar">
       <div class="brand"><img src="assets/favicon.svg" alt=""><strong>M SQUARE</strong><span class="muted">الإدارة</span></div>
       <nav class="tabs">
+        <button class="tab" data-tab="stats">📊 الإحصائيات</button>
         <button class="tab active" data-tab="orders">🧾 الطلبات <span class="pill" id="new-badge" hidden></span></button>
         <button class="tab" data-tab="products">👟 المنتجات</button>
       </nav>
@@ -49,6 +50,21 @@
     </header>
 
     <main class="content">
+      <!-- الإحصائيات -->
+      <section id="tab-stats" hidden>
+        <div class="toolbar stats-toolbar">
+          <div class="chips" id="stats-period">
+            <button class="chip" data-days="1">اليوم</button>
+            <button class="chip active" data-days="7">7 أيام</button>
+            <button class="chip" data-days="30">30 يوماً</button>
+            <button class="chip" data-days="90">90 يوماً</button>
+          </div>
+          <button class="btn btn-ghost" id="stats-refresh">🔄 تحديث</button>
+        </div>
+        <p class="warn" id="stats-warn" hidden>⚠️ الإحصائيات غير مفعّلة بعد — شغّل الملف <code>supabase/analytics.sql</code> في Supabase SQL Editor.</p>
+        <div id="stats-body"><p class="empty">⏳ جاري التحميل...</p></div>
+      </section>
+
       <!-- الطلبات -->
       <section id="tab-orders">
         <div class="stats" id="stats"></div>

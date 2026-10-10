@@ -147,6 +147,7 @@ document.getElementById('filter-groups').addEventListener('change', e => {
   if (!cb) return;
   const g = cb.dataset.group;
   state[g] = cb.checked ? [...state[g], cb.value] : state[g].filter(v => v !== cb.value);
+  if (cb.checked) track('filter', { value: `${g}:${cb.value}` });
   render();
 });
 
@@ -170,4 +171,8 @@ document.getElementById('filters-apply').onclick = closeFilters;
 document.querySelectorAll('.search-box input').forEach(i => i.value = state.q);
 
 render();
+
+/* تسجيل البحث والفلاتر القادمة من الرابط (القائمة العلوية، مربع البحث) */
+if (state.q) track('search', { value: state.q });
+GROUPS.forEach(g => state[g].forEach(v => track('filter', { value: `${g}:${v}` })));
 });

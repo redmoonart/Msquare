@@ -237,6 +237,7 @@ function addToCart(id, size, qty = 1) {
   const line = cart.find(l => l.id === id && l.size === size);
   if (line) line.qty += qty; else cart.push({ id, size, qty });
   setCart(cart);
+  track('add_to_cart', { product_id: id, value: size });
   toast(t('added'));
   openDrawer('cart-drawer');
 }
@@ -346,6 +347,7 @@ function bindGlobal() {
     }
     else if (el.matches('[data-remove]')) { const cart = getCart(); cart.splice(el.dataset.remove, 1); setCart(cart); }
     else if (el.id === 'go-checkout') {
+      track('checkout');
       closeAll();
       document.getElementById('checkout-total').textContent = formatPrice(cartTotal());
       document.getElementById('checkout-form').hidden = false;
@@ -379,6 +381,7 @@ function bindGlobal() {
     err.hidden = true;
     try {
       await sendOrder(order);
+      track('order', { value: order.id });
       store.set('ms_orders', [...store.get('ms_orders', []), order]);
       setCart([]);
       form.reset();
@@ -454,12 +457,57 @@ async function sendOrder(order) {
   if (!res.ok) throw new Error(`order_failed_${res.status}: ${await res.text()}`);
 }
 
+/* ---------- التتبع (الإحصائيات في لوحة الإدارة) ----------
+   كل زائر له معرّف عشوائي محفوظ في المتصفح، بدون أي بيانات شخصية. */
+const VISITOR_ID = (() => {
+  let id = store.get('ms_vid', '');
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '').slice(0, 32);
+    store.set('ms_vid', id);
+  }
+  return id;
+})();
+
+function deviceType() {
+  const ua = navigator.userAgent;
+  if (/iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua))) return 'tablet';
+  return /Mobi|Android|iPhone/i.test(ua) ? 'mobile' : 'desktop';
+}
+
+/* مصدر الزيارة: utm_source أو الموقع الذي جاء منه الزائر */
+function trafficSource() {
+  const utm = new URLSearchParams(location.search).get('utm_source');
+  if (utm) return utm.slice(0, 100);
+  try {
+    const ref = document.referrer && new URL(document.referrer).hostname.replace(/^www\./, '');
+    return ref && ref !== location.hostname ? ref.slice(0, 100) : null;
+  } catch { return null; }
+}
+
+function track(type, data = {}) {
+  if (!HAS_DB || location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname)) return;
+  const row = {
+    type, visitor_id: VISITOR_ID,
+    product_id: data.product_id ?? null,
+    path: (data.path ?? location.pathname).slice(0, 120),
+    value: data.value != null ? String(data.value).slice(0, 100) : null,
+    referrer: type === 'page_view' ? trafficSource() : null,
+    device: deviceType(), lang: LANG
+  };
+  fetch(`${SUPABASE_URL}/rest/v1/ms_events`, {
+    method: 'POST', keepalive: true,
+    headers: { ...dbHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(row)
+  }).catch(() => { /* التتبع لا يوقف الموقع */ });
+}
+
 /* ---------- التشغيل ---------- */
 /* تحميل المنتجات ثم رسم الصفحة */
 async function boot(render) {
   await loadProducts();
   initLayout();
   render();
+  track('page_view');
 }
 
 function initLayout() {

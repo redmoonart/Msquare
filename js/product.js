@@ -74,6 +74,7 @@ document.getElementById('product').innerHTML = `
 `;
 
 bindCarousels();
+track('product_view', { product_id: product.id });
 
 document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => {
   selectedSize = Number(b.dataset.size);
